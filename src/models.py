@@ -1,4 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+
 
 db = SQLAlchemy()
 
@@ -8,7 +10,7 @@ class User(db.Model):
     last_name = db.Column(db.String(80))
     favorites = db.Column(db.Integer())
     email = db.Column(db.String(50), unique=True, nullable=True)
-    password = db.Column(db.String(50), nullable=True)
+    password = db.Column(db.String(520), nullable=True)
     #is_active = db.Column(db.Boolean(), unique=True, nullable=True)
     commentary = db.relationship('Commentary', lazy=True)
     observation = db.relationship('Observation', lazy=True)

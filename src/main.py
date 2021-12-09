@@ -3,21 +3,29 @@ This module takes care of starting the API Server, Loading the DB and Adding the
 """
 import os
 from flask import Flask, request, jsonify, url_for
+from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+from flask_jwt_extended import create_access_token  
+from flask_jwt_extended import get_jwt_identity 
+from flask_jwt_extended import jwt_required  
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User, CollabUser, Collaboration, AttributeDescription, Observation, Mushrooms, Commentary, Post
 #from models import Person
 
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
 app.url_map.strict_slashes = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["JWTSECRETKEY"] = "978645312568923568923sdfs8df4s8df8sd1fs54d1f87sdf18sdf1sd45f8"
+jwt = JWTManager(app)
 MIGRATE = Migrate(app, db)
-db.init_app(app)
 CORS(app)
+db.init_app(app)
 setup_admin(app)
 
 # Handle/serialize errors like a JSON object
@@ -46,8 +54,10 @@ def handle_hello():
  """
 
 
-@app.route('/api/v1/auth/register', methods=['POST', 'GET'])
+@app.route('/api/v1/auth/register', methods=['GET', 'POST'])
+@jwt_required()
 def register_user():
+    current_user = get_jwt_identity()
     if request.method == 'POST':
         response_body_User = request.get_json()
 
@@ -61,23 +71,63 @@ def register_user():
             raise APIException(
                 'You need to specify your last_name', status_code=400)
         if 'email' not in response_body_User:
-            raise APIException('You need to specify an email', status_code=400)
+            raise APIException(
+                'You need to specify an email', status_code=400)
         if 'password' not in response_body_User:
-            raise APIException('You need to specify a password', status_code=400)
+            raise APIException(
+                'You need to specify a password', status_code=400)
 
         new_user = User(first_name=response_body_User['first_name'],
                         last_name=response_body_User['last_name'],
                         email=response_body_User['email'],
-                        password=response_body_User['password'])
+                        password=bcrypt.generate_password_hash(response_body_User['password']))
         db.session.add(new_user)
         db.session.commit()
-
-        return "Everything in it's Right Place", 200
+        register_user =  User.query.all()        
+        serialized_register_user = map(lambda User: User.serialize(), register_user)
+        filtered_users = list(filter(lambda User: User['first_name'] == response_body_User['first_name'], serialized_register_user))
+        return {"User": list(filtered_users), "Everything in it's Right Place": 200}
     elif request.method == 'GET':
         register_user =  User.query.all()
         serialized_register_user = map(lambda User: User.serialize(), register_user)
         return {"User": list(serialized_register_user), "status": 200}
 
+@app.route('/api/v1/auth/token', methods=['POST'])
+
+
+
+
+
+
+@app.route('/api/v1/auth/login', methods=['POST', 'GET'])
+def login_user():
+    if request.method == 'POST':
+        response_login = request.get_json()
+
+        if response_login is None:
+            raise APIException(
+                "You need to specify the request body as a json object", status_code=400)
+        if 'email' not in response_login:
+            raise APIException(
+                'You need to specify an email', status_code=400)
+        if 'password' not in response_login:
+            raise APIException(
+                'You need to specify a password', status_code=400)
+
+        login_user =  User.query.all(),                
+        serialized_login_user = map(lambda User: User.serialize(), login_user),
+        filtered_login = list(filter(lambda User: User['email']  == response_login['email'] and User['password'] == bcrypt.generate_password_hash(response_login['password'], serialized_login_user ))),
+        if(filtered_login.count == 0):
+            return{"status": 401, "message": "usuario o contraseña incorrectos"}
+        elif(bcrypt.check_password_hash(filtered_login[0]['password'], response_login['password'])): 
+            login_token = create_access_token(identity=filtered_login[0]['first_name'])
+            return {"User": list(filtered_login), "token": login_token, "Everything in it's Right Place": 200}
+        else:
+            return abort(401)
+    elif request.method == 'GET':
+        login_user =  User.query.all()
+        serialized_login_user = map(lambda User: User.serialize(), login_user)
+        return {"User": list(serialized_login_user), "status": 200}
 
 @app.route('/register_collab', methods=['POST'])
 def collab_register():
