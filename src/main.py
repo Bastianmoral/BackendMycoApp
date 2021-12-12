@@ -21,7 +21,7 @@ bcrypt = Bcrypt(app)
 app.url_map.strict_slashes = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config["JWTSECRETKEY"] = "978645312568923568923sdfs8df4s8df8sd1fs54d1f87sdf18sdf1sd45f8"
+app.config["JWTSECRETKEY"] = os.environ.get('JWT_SECRET')
 jwt = JWTManager(app)
 MIGRATE = Migrate(app, db)
 CORS(app)
@@ -33,7 +33,7 @@ setup_admin(app)
 
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
-    return jsonify(error.to_dict()), error.status_code
+    return jsonify(error_to.dict()), error.status_code
 
 # generate sitemap with all your endpoints
 
@@ -55,11 +55,12 @@ def handle_hello():
 
 
 @app.route('/api/v1/auth/register', methods=['GET', 'POST'])
-@jwt_required()
+#@jwt_required()
 def register_user():
-    current_user = get_jwt_identity()
+    #current_user = get_jwt_identity()
     if request.method == 'POST':
         response_body_User = request.get_json()
+        print(response_body_User)
 
         if response_body_User is None:
             raise APIException(
@@ -77,23 +78,63 @@ def register_user():
             raise APIException(
                 'You need to specify a password', status_code=400)
 
+        register_user =  User.query.all()      
+        print(register_user)  
         new_user = User(first_name=response_body_User['first_name'],
                         last_name=response_body_User['last_name'],
                         email=response_body_User['email'],
-                        password=bcrypt.generate_password_hash(response_body_User['password']))
+                        password=bcrypt.generate_password_hash(response_body_User['password']).decode())
         db.session.add(new_user)
         db.session.commit()
-        register_user =  User.query.all()        
-        serialized_register_user = map(lambda User: User.serialize(), register_user)
-        filtered_users = list(filter(lambda User: User['first_name'] == response_body_User['first_name'], serialized_register_user))
+        serialized_register_user = map(lambda user: user.serialize, register_user)
+        print(serialized_register_user)
+        filtered_users = list(filter(lambda user: user['first_name'] == response_body_User['first_name'], serialized_register_user))
         return {"User": list(filtered_users), "Everything in it's Right Place": 200}
     elif request.method == 'GET':
         register_user =  User.query.all()
-        serialized_register_user = map(lambda User: User.serialize(), register_user)
-        return {"User": list(serialized_register_user), "status": 200}
+        serialized_register_user = map(lambda user: user.serialize(), register_user)
+        return {'User': list(serialized_register_user), 'status': 200}
 
-@app.route('/api/v1/auth/token', methods=['POST'])
 
+
+
+@app.route("/api/v1/auth/user", methods=['GET'])
+@jwt_required()
+def regular_user():
+    current_user = get_jwt_identity()
+    print(current_user)
+    if request.method == 'GET':
+        users = User.query.all()
+        serialized_users = map(lambda user: user.serialize, regular_user)
+        return {"users": list(serialized_users),"status" : 200}
+    elif request.method == 'POST':
+        return'Hola POST'
+    else:
+        abort(405)    
+   
+#    if email != "test" or password != "test":
+#        return jsonify({"msg": "Bad username or password"}), 401
+
+#    access_token = create_access_token(identity=User.id)
+#    return jsonify({"token" : access_token, "user_id":User.id})
+
+
+
+
+
+
+
+
+# # ENDPOINT QUE CREA UN TOKEN 
+# @app.route("/api/v1/auth/token", methods=["POST"])
+# def create_token():
+#     email = request.json.get("email", None)
+#     password = request.json.get("password", None)
+#     if email != "test" or password != "test":
+#         return jsonify({"msg": "Bad username or password"}), 401
+
+#     access_token = create_access_token(identity=email)
+#     return jsonify(access_token=access_token)
 
 
 
@@ -103,7 +144,7 @@ def register_user():
 def login_user():
     if request.method == 'POST':
         response_login = request.get_json()
-
+        print(response_login)
         if response_login is None:
             raise APIException(
                 "You need to specify the request body as a json object", status_code=400)
@@ -114,11 +155,12 @@ def login_user():
             raise APIException(
                 'You need to specify a password', status_code=400)
 
-        login_user =  User.query.all(),                
-        serialized_login_user = map(lambda User: User.serialize(), login_user),
-        filtered_login = list(filter(lambda User: User['email']  == response_login['email'] and User['password'] == bcrypt.generate_password_hash(response_login['password'], serialized_login_user ))),
+        login_user =  User.query.all()        
+        print(login_user)        
+        serialized_login_user = map(lambda user: user.serialize, login_user)
+        filtered_login = list(filter(lambda user: user['email']  == response_login['email'], serialized_login_user ))
         if(filtered_login.count == 0):
-            return{"status": 401, "message": "usuario o contraseña incorrectos"}
+            return{"status": 400, "message": "usuario o contraseña incorrectos"}
         elif(bcrypt.check_password_hash(filtered_login[0]['password'], response_login['password'])): 
             login_token = create_access_token(identity=filtered_login[0]['first_name'])
             return {"User": list(filtered_login), "token": login_token, "Everything in it's Right Place": 200}
@@ -126,8 +168,11 @@ def login_user():
             return abort(401)
     elif request.method == 'GET':
         login_user =  User.query.all()
-        serialized_login_user = map(lambda User: User.serialize(), login_user)
+        serialized_login_user = map(lambda user: user.serialize, login_user)
         return {"User": list(serialized_login_user), "status": 200}
+
+
+
 
 @app.route('/register_collab', methods=['POST'])
 def collab_register():

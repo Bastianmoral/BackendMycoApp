@@ -19,14 +19,16 @@ class User(db.Model):
      
     
     def __repr__(self):
-        return '<User %r>' % self.first_name
+        return '<User %r>' % self.email
+    
+    @property
     def serialize(self):
         return {
             "id": self.id,
             "first_name": self.first_name,
             "last_name": self.last_name,
             "email": self.email,
-            # do not serialize the password, its a security breach
+            "password" : self.password
         }
 
 
@@ -125,7 +127,7 @@ class Observation(db.Model):
     
 
     def __repr__(self):
-        return '<Observation %r>' % self.Title
+        return '<Observation %r>' % self.title
 
     def serialize(self):
         return {
