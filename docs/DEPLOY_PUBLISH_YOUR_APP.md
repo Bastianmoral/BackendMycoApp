@@ -55,7 +55,8 @@ $ heroku run -a= secret-earth-75298 pipenv run upgrade
 
 Commit and push to heroku, make sure you have added and commited your changes and push to heroku
 ```sh
-$ git push heroku main RANDOM CHANGE
+$ git push heroku main RANDOM CHANG
+
 ```
 
 ## That is it!
