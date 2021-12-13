@@ -128,7 +128,6 @@ def regular_user():
 
 
 
-# # ENDPOINT QUE CREA UN TOKEN 
 # @app.route("/api/v1/auth/token", methods=["POST"])
 # def create_token():
 #     email = request.json.get("email", None)
