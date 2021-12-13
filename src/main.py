@@ -31,9 +31,12 @@ setup_admin(app)
 # Handle/serialize errors like a JSON object
 
 
+
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
-    return jsonify(error_to.dict()), error.status_code
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
 
 # generate sitemap with all your endpoints
 
